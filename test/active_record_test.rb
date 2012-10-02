@@ -55,6 +55,16 @@ ActiveRecord::Schema.define do
   end
 
   create_table "namespaced", :force => true
+
+  create_table "clubs", :force => true do |t|
+    t.integer "id"
+    t.string  "name"
+  end
+
+  create_table "clubs_users", :force => true do |t|
+    t.integer "club_id"
+    t.integer  "user_id"
+  end
 end
 
 # models
@@ -62,6 +72,7 @@ class User < ActiveRecord::Base
   has_one  :profile, :dependent => :destroy
   has_many :emails,  :dependent => :destroy, :order => 'id'
   has_many :notes,   :as => :notable
+  has_and_belongs_to_many :clubs
   replicate_natural_key :login
 end
 
@@ -91,6 +102,10 @@ end
 
 class User::Namespaced < ActiveRecord::Base
   self.table_name = "namespaced"
+end
+
+class Club < ActiveRecord::Base
+  has_and_belongs_to_many :users
 end
 
 # The test case loads some fixture data once and uses transaction rollback to
@@ -123,10 +138,13 @@ class ActiveRecordTest < Test::Unit::TestCase
     user.create_profile :name => 'Ryan Tomayko', :homepage => 'http://tomayko.com'
     user.emails.create! :email => 'ryan@github.com'
     user.emails.create! :email => 'rtomayko@gmail.com'
+    user.clubs.create! :name => 'chess'
+    battlebots = user.clubs.create! :name => 'battlebots'
 
     user = User.create! :login => 'kneath'
     user.create_profile :name => 'Kyle Neath', :homepage => 'http://warpspire.com'
     user.emails.create! :email => 'kyle@github.com'
+    user.clubs << battlebots
 
     user = User.create! :login => 'tmm1'
     user.create_profile :name => 'tmm1', :homepage => 'https://github.com/tmm1'
@@ -350,6 +368,46 @@ class ActiveRecordTest < Test::Unit::TestCase
     assert_equal 'User', type
     assert attrs['updated_at']
     assert_nil attrs['created_at']
+  end
+
+  def test_dumping_has_and_belongs_to_many_associations
+    objects = []
+    @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
+
+    User.replicate_associations :clubs
+    Profile.delete_all
+    rtomayko = User.find_by_login('rtomayko')
+    kneath = User.find_by_login('kneath')
+    @dumper.dump rtomayko
+    @dumper.dump kneath
+
+    assert_equal 6, objects.size
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'User', type
+    assert_equal rtomayko.id, id
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'Club', type
+    assert_equal 'chess', attrs['name']
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'Club', type
+    assert_equal 'battlebots', attrs['name']
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'Replicate::AR::Habtm', type
+    assert_equal [:id, 'User', rtomayko.id], obj.attributes["id"]
+    assert_equal [:id, 'Club', rtomayko.club_ids], obj.attributes["collection"]
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'User', type
+    assert_equal kneath.id, id
+
+    type, id, attrs, obj = objects.shift
+    assert_equal 'Replicate::AR::Habtm', type
+    assert_equal [:id, 'User', kneath.id], obj.attributes["id"]
+    assert_equal [:id, 'Club', kneath.club_ids], obj.attributes["collection"]
   end
 
   def test_dumping_polymorphic_associations
