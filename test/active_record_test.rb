@@ -374,6 +374,29 @@ class ActiveRecordTest < Test::Unit::TestCase
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
+    User.replicate_associations :clubs
+    rtomayko = User.find_by_login('rtomayko')
+    kneath = User.find_by_login('kneath')
+    @dumper.dump rtomayko
+    @dumper.dump kneath
+
+    User.destroy_all
+    Club.destroy_all
+    objects.each { |type, id, attrs, obj| @loader.feed type, id, attrs }
+
+    rtomayko = User.find_by_login('rtomayko')
+    kneath = User.find_by_login('kneath')
+    battlebots = Club.find_by_name('battlebots')
+    chess = Club.find_by_name('chess')
+    assert_equal [chess, battlebots], rtomayko.clubs.to_a
+    assert_equal [battlebots], kneath.clubs.to_a
+    assert_equal [rtomayko, kneath], battlebots.users.to_a
+  end
+
+  def test_has_and_belongs_to_many_associations_without_replicate_directive
+    objects = []
+    @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
+
     rtomayko = User.find_by_login('rtomayko')
     kneath = User.find_by_login('kneath')
     @dumper.dump rtomayko
