@@ -370,44 +370,27 @@ class ActiveRecordTest < Test::Unit::TestCase
     assert_nil attrs['created_at']
   end
 
-  def test_dumping_has_and_belongs_to_many_associations
+  def test_dumping_and_loading_has_and_belongs_to_many_associations
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
     User.replicate_associations :clubs
-    Profile.delete_all
     rtomayko = User.find_by_login('rtomayko')
     kneath = User.find_by_login('kneath')
     @dumper.dump rtomayko
     @dumper.dump kneath
 
-    assert_equal 6, objects.size
+    User.destroy_all
+    Club.destroy_all
+    objects.each { |type, id, attrs, obj| @loader.feed type, id, attrs }
 
-    type, id, attrs, obj = objects.shift
-    assert_equal 'User', type
-    assert_equal rtomayko.id, id
-
-    type, id, attrs, obj = objects.shift
-    assert_equal 'Club', type
-    assert_equal 'chess', attrs['name']
-
-    type, id, attrs, obj = objects.shift
-    assert_equal 'Club', type
-    assert_equal 'battlebots', attrs['name']
-
-    type, id, attrs, obj = objects.shift
-    assert_equal 'Replicate::AR::Habtm', type
-    assert_equal [:id, 'User', rtomayko.id], obj.attributes["id"]
-    assert_equal [:id, 'Club', rtomayko.club_ids], obj.attributes["collection"]
-
-    type, id, attrs, obj = objects.shift
-    assert_equal 'User', type
-    assert_equal kneath.id, id
-
-    type, id, attrs, obj = objects.shift
-    assert_equal 'Replicate::AR::Habtm', type
-    assert_equal [:id, 'User', kneath.id], obj.attributes["id"]
-    assert_equal [:id, 'Club', kneath.club_ids], obj.attributes["collection"]
+    rtomayko = User.find_by_login('rtomayko')
+    kneath = User.find_by_login('kneath')
+    battlebots = Club.find_by_name('battlebots')
+    chess = Club.find_by_name('chess')
+    assert_equal rtomayko.clubs, [chess, battlebots]
+    assert_equal kneath.clubs, [battlebots]
+    assert_equal battlebots.users, [rtomayko, kneath]
   end
 
   def test_dumping_polymorphic_associations
