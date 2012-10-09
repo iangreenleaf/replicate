@@ -374,11 +374,12 @@ class ActiveRecordTest < Test::Unit::TestCase
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
-    User.replicate_associations :clubs
     rtomayko = User.find_by_login('rtomayko')
     kneath = User.find_by_login('kneath')
     @dumper.dump rtomayko
+    @dumper.dump rtomayko.clubs
     @dumper.dump kneath
+    @dumper.dump kneath.clubs
 
     User.destroy_all
     Club.destroy_all
@@ -388,9 +389,9 @@ class ActiveRecordTest < Test::Unit::TestCase
     kneath = User.find_by_login('kneath')
     battlebots = Club.find_by_name('battlebots')
     chess = Club.find_by_name('chess')
-    assert_equal rtomayko.clubs, [chess, battlebots]
-    assert_equal kneath.clubs, [battlebots]
-    assert_equal battlebots.users, [rtomayko, kneath]
+    assert_equal [chess, battlebots], rtomayko.clubs.to_a
+    assert_equal [battlebots], kneath.clubs.to_a
+    assert_equal [rtomayko, kneath], battlebots.users.to_a
   end
 
   def test_dumping_polymorphic_associations
