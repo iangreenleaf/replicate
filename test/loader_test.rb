@@ -74,6 +74,23 @@ class LoaderTest < Test::Unit::TestCase
     assert_equal objects[0].id, objects[1].related
   end
 
+  def test_habtm_ids
+    objects = []
+    @loader.listen { |type, id, attrs, object| objects << object }
+
+    object1 = thing
+    @loader.feed object1.class, object1.id, object1.attributes
+    object2 = thing
+    @loader.feed object2.class, object2.id, object2.attributes
+    object2.class.send(:define_method, :pluralize_table_names, Proc.new {true})
+    object2.class.send(:define_method, :foo_ids, Proc.new {[object1.id]})
+    reflection = ActiveRecord::Base.create_reflection :has_and_belongs_to_many, :foos, {}, object2
+    relation = Replicate::AR::Habtm.new object1, reflection
+    @loader.feed relation.class, "Bar:foos:1", relation.attributes
+
+    assert_equal objects[0].foo_ids, [objects[1].id]
+  end
+
   def test_translating_multiple_id_attributes
     objects = []
     @loader.listen { |type, id, attrs, object| objects << object }
