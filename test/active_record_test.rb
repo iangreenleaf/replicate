@@ -393,16 +393,14 @@ class ActiveRecordTest < Test::Unit::TestCase
     assert_equal [rtomayko, kneath], battlebots.users.to_a
   end
 
-  def test_has_and_belongs_to_many_associations_without_replicate_directive
+  def test_has_and_belongs_to_many_associations_at_dump_time
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
     rtomayko = User.find_by_login('rtomayko')
     kneath = User.find_by_login('kneath')
-    @dumper.dump rtomayko
-    @dumper.dump rtomayko.clubs
-    @dumper.dump kneath
-    @dumper.dump kneath.clubs
+    @dumper.dump rtomayko, :associations => [:clubs]
+    @dumper.dump kneath, :associations => [:clubs]
 
     User.destroy_all
     Club.destroy_all
