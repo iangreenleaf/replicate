@@ -61,7 +61,7 @@ ActiveRecord::Schema.define do
     t.string  "name"
   end
 
-  create_table "clubs_users", :force => true do |t|
+  create_table "clubs_users", :id => false, :force => true do |t|
     t.integer "club_id"
     t.integer  "user_id"
   end
